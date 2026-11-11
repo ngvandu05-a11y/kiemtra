@@ -141,8 +141,46 @@
     <!-- Canvas dành cho hiệu ứng Pháo hoa, Confetti, Trái tim, Ngôi sao -->
     <canvas id="fxCanvas"></canvas>
 
+    <!-- TRẠNG THÁI 0: MÀN HÌNH ĐẾM NGƯỢC THỜI GIAN (Hiển thị khi chưa tới 00:00 ngày 12/11) -->
+    <div id="countdownContainer" class="hidden w-full min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white flex-col items-center justify-center p-4 z-40 relative">
+        <div class="glass-card bg-white/10 border-white/20 p-8 sm:p-12 rounded-3xl max-w-lg w-full text-center shadow-2xl backdrop-blur-md">
+            <div class="w-16 h-16 bg-pink-500/20 text-pink-400 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl animate-pulse">
+                <i class="fa-solid fa-hourglass-half"></i>
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-2 font-rounded">
+                ĐANG ĐẾM NGƯỢC... ⏳
+            </h2>
+            <p class="text-slate-300 text-sm sm:text-base mb-6 font-cute">
+                Món quà bất ngờ sẽ được bật mở đúng <br>
+                <span class="text-pink-400 font-bold">00:00:00 ngày 12/11</span>!
+            </p>
+
+            <!-- Lưới thời gian đếm ngược -->
+            <div class="grid grid-cols-4 gap-2 sm:gap-4 my-6">
+                <div class="bg-white/10 rounded-2xl p-3 border border-white/10">
+                    <span id="cdDays" class="block text-2xl sm:text-4xl font-extrabold text-pink-300 font-mono">00</span>
+                    <span class="text-[10px] sm:text-xs text-slate-300 uppercase font-semibold">Ngày</span>
+                </div>
+                <div class="bg-white/10 rounded-2xl p-3 border border-white/10">
+                    <span id="cdHours" class="block text-2xl sm:text-4xl font-extrabold text-pink-300 font-mono">00</span>
+                    <span class="text-[10px] sm:text-xs text-slate-300 uppercase font-semibold">Giờ</span>
+                </div>
+                <div class="bg-white/10 rounded-2xl p-3 border border-white/10">
+                    <span id="cdMinutes" class="block text-2xl sm:text-4xl font-extrabold text-pink-300 font-mono">00</span>
+                    <span class="text-[10px] sm:text-xs text-slate-300 uppercase font-semibold">Phút</span>
+                </div>
+                <div class="bg-white/10 rounded-2xl p-3 border border-white/10">
+                    <span id="cdSeconds" class="block text-2xl sm:text-4xl font-extrabold text-pink-300 font-mono">00</span>
+                    <span class="text-[10px] sm:text-xs text-slate-300 uppercase font-semibold">Giây</span>
+                </div>
+            </div>
+
+            <p class="text-xs text-slate-400">Bé nhớ quay lại đúng giờ để khám phá bí mật nhé! ✨</p>
+        </div>
+    </div>
+
     <!-- TRẠNG THÁI 1: BÀI TEST ĐỐ VUI NGỤY TRANG (Tối giản, nghiêm túc, không lộ bí mật) -->
-    <div id="quizContainer" class="w-full min-h-screen flex items-center justify-center p-4 transition-all duration-700">
+    <div id="quizContainer" class="hidden w-full min-h-screen flex items-center justify-center p-4 transition-all duration-700">
         <div class="max-w-md w-full glass-quiz rounded-3xl p-6 sm:p-8 text-center relative overflow-hidden">
             <div class="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
             
@@ -382,6 +420,68 @@
 
     <!-- JAVASCRIPT XỬ LÝ TOÀN BỘ LOGIC -->
     <script>
+        // --- 0. LOGIC ĐẾM NGƯỢC THỜI GIAN VÀ KHÓA MỞ TRANG ---
+        function getTargetDate() {
+            const now = new Date();
+            let targetYear = now.getFullYear();
+            // Thiết lập mốc thời gian: 00:00:00 ngày 12/11
+            let target = new Date(targetYear, 10, 12, 0, 0, 0); // Tháng 11 là index 10
+
+            // Nếu đã qua ngày 12/11 năm nay thì chuyển sang mốc 12/11 năm tới
+            if (now > target && (now.getMonth() !== 10 || now.getDate() !== 12)) {
+                target = new Date(targetYear + 1, 10, 12, 0, 0, 0);
+            }
+            return target;
+        }
+
+        const targetTime = getTargetDate().getTime();
+        let countdownTimer = null;
+
+        function checkTimeAndInit() {
+            const now = new Date().getTime();
+            const distance = targetTime - now;
+
+            // Nếu đang đúng ngày 12/11 hoặc đã qua thời gian khóa -> Hiển thị trang Quiz
+            if (distance <= 0) {
+                if (countdownTimer) clearInterval(countdownTimer);
+                document.getElementById('countdownContainer').classList.add('hidden');
+                document.getElementById('quizContainer').classList.remove('hidden');
+                document.getElementById('quizContainer').classList.add('flex');
+                initQuiz();
+            } else {
+                // Nếu chưa tới giờ -> Hiển thị màn hình đếm ngược
+                document.getElementById('quizContainer').classList.add('hidden');
+                document.getElementById('birthdayContainer').classList.add('hidden');
+                document.getElementById('countdownContainer').classList.remove('hidden');
+                document.getElementById('countdownContainer').classList.add('flex');
+                updateCountdown(distance);
+
+                if (!countdownTimer) {
+                    countdownTimer = setInterval(() => {
+                        const currentNow = new Date().getTime();
+                        const currentDist = targetTime - currentNow;
+                        if (currentDist <= 0) {
+                            checkTimeAndInit();
+                        } else {
+                            updateCountdown(currentDist);
+                        }
+                    }, 1000);
+                }
+            }
+        }
+
+        function updateCountdown(dist) {
+            const days = Math.floor(dist / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((dist % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((dist % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((dist % (1000 * 60)) / 1000);
+
+            document.getElementById('cdDays').textContent = days < 10 ? '0' + days : days;
+            document.getElementById('cdHours').textContent = hours < 10 ? '0' + hours : hours;
+            document.getElementById('cdMinutes').textContent = minutes < 10 ? '0' + minutes : minutes;
+            document.getElementById('cdSeconds').textContent = seconds < 10 ? '0' + seconds : seconds;
+        }
+
         // --- 1. DANH SÁCH CÂU HỎI TRẮC NGHIỆM NGỤY TRANG ---
         const quizList = [
             { q: "1 + 1 = ?", options: ["1", "2", "3", "4"], correct: "2" },
@@ -389,8 +489,8 @@
             { q: "10 + 2 = ?", options: ["10", "11", "12", "13"], correct: "12" },
             { q: "8 + 3 = ?", options: ["11", "12", "10", "14"], correct: "11" },
             { q: "12 + 11 = ?", options: ["21", "22", "23", "24"], correct: "23" },
-{ q: "______ birthday?", options: ["Happy","Birthday"], correct: "Happy" },
-{ q: "Từ nào sau đây có nghĩa là SINH NHẬT?", options: ["Happy","Birthday","To","You"], correct: "Birthday" }
+            { q: "______ birthday?", options: ["Happy","Birthday"], correct: "Happy" },
+            { q: "Từ nào sau đây có nghĩa là SINH NHẬT?", options: ["Happy","Birthday","To","You"], correct: "Birthday" }
         ];
 
         let selectedQuiz = null;
@@ -712,7 +812,7 @@
         }
 
         window.onload = function() {
-            initQuiz();
+            checkTimeAndInit();
         };
     </script>
 </body>
